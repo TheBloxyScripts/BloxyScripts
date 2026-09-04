@@ -1,9 +1,9 @@
 <h1 align="center">📚 TheBloxyScripts UI Framework</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0.0-blue" alt="Version">
-  <img src="https://img.shields.io/badge/language-Lua-yellow" alt="Language">
-  <img src="https://img.shields.io/badge/platform-Roblox-red" alt="Platform">
+  <img src="[https://img.shields.io/badge/version-1.0.0-blue](https://img.shields.io/badge/version-1.0.0-blue)" alt="Version">
+  <img src="[https://img.shields.io/badge/language-Lua-yellow](https://img.shields.io/badge/language-Lua-yellow)" alt="Language">
+  <img src="[https://img.shields.io/badge/platform-Roblox-red](https://img.shields.io/badge/platform-Roblox-red)" alt="Platform">
 </p>
 
 Welcome to the complete guide for using the **TheBloxyScripts UI Framework**. This framework is designed for building fast, beautiful, and custom user interfaces (cheats and hubs) in Roblox.
@@ -18,7 +18,7 @@ Before creating any elements, load the library from GitHub and create your main 
 
 ```lua
 -- Load the framework from GitHub
-local Library = loadstring(game:HttpGet("[https://raw.githubusercontent.com/TheBloxyScripts/BloxyScripts/main/main.lua](https://raw.githubusercontent.com/TheBloxyScripts/BloxyScripts/main/main.lua)"))()
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/TheBloxyScripts/BloxyScripts/main/main.lua"))()
 
 -- Create the main window
 local Window = Library:CreateWindow({
@@ -156,7 +156,7 @@ end)
 6. Full Script Example
 Lua
 
-local Library = loadstring(game:HttpGet("[https://raw.githubusercontent.com/TheBloxyScripts/BloxyScripts/main/main.lua](https://raw.githubusercontent.com/TheBloxyScripts/BloxyScripts/main/main.lua)"))()
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/TheBloxyScripts/BloxyScripts/main/main.lua"))()
 
 -- Creates the main cheat hub window
 local Window = Library:CreateWindow({
