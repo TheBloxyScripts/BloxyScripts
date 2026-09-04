@@ -33,9 +33,9 @@ local Hub = Window or getgenv().CustomHub
 if not Hub then
     warn("Error: Main framework not initialized!")
     return
-end ```
-
-2. Text Formats: Plain String or Multi-language (EN / RU)
+end 
+```
+## 2. Text Formats: Plain String or Multi-language (EN / RU)
 
 Across all framework methods (tabs, sections, buttons, toggles, etc.), text can be passed in two ways:
 
@@ -44,7 +44,7 @@ Across all framework methods (tabs, sections, buttons, toggles, etc.), text can 
     Language table (if you want text to update dynamically when the hub's language changes): {EN = "Main", RU = "Главная"}.
 
 All examples below demonstrate both options.
-3. Creating Tabs
+## 3. Creating Tabs
 
 Tabs divide your hub's functionality into separate categories.
 Lua
@@ -55,7 +55,7 @@ local Tab = Window:CreateTab({EN = "Main", RU = "Главная"})
 -- Plain string variant:
 -- local Tab = Window:CreateTab("Главная")
 
-4. UI Elements
+## 4. UI Elements
 Section
 
 A visual title-divider inside a tab.
@@ -143,7 +143,7 @@ Tab:AddDynamicLabel({EN = "FPS: ", RU = "FPS: "}, function()
     return math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Receive Kbps"]:GetValue())
 end)
 
-5. Themes & Color Customization
+## 5. Themes & Color Customization
 
 You can programmatically control the interface accent colors (for instance, via settings menu buttons):
 Lua
@@ -153,7 +153,7 @@ SettingsTab:AddButton({EN = "Custom Neon Theme", RU = "Неоновая тема
     UpdateThemeColors(Color3.fromRGB(0, 255, 200))
 end)
 
-6. Full Script Example
+## 6. Full Script Example
 Lua
 
 local Library = loadstring(game:HttpGet("[https://raw.githubusercontent.com/TheBloxyScripts/BloxyScripts/main/main.lua](https://raw.githubusercontent.com/TheBloxyScripts/BloxyScripts/main/main.lua)"))()
