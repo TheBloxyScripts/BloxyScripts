@@ -153,7 +153,7 @@ SettingsTab:AddButton({EN = "Custom Neon Theme", RU = "Неоновая тема
     UpdateThemeColors(Color3.fromRGB(0, 255, 200))
 end)
 ```
-## 6. Full Script Example
+## 6. Full Script Example (Game: Sniper Arena)
 ```Lua
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/TheBloxyScripts/BloxyScripts/main/main.lua"))()
 
