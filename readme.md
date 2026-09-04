@@ -80,10 +80,10 @@ end)
 -- Tab:AddButton("Телепорт на спавн", function() ... end)
 ```
 Toggle
-```lua
+
 An on/off switch with state persistence saved to the configuration.
 Lua
-
+```lua
 Tab:AddToggle({EN = "GodMode", RU = "Бессмертие"}, "GodModeKey", false, function(state)
     if state then
         print("Enabled")
