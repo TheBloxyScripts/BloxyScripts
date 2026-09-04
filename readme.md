@@ -447,8 +447,4 @@ AimTab:AddToggle("WallCheck", "AimWallCheck", false, function(s) state.wall_chec
 AimTab:AddToggle("Show FOV", "AimFovVis", false, function(s) state.fov_visible = s end)
 AimTab:AddSlider("FOV Radius", "AimFovRad", 50, 400, 180, function(val) state.fov = val end)
 
-            local char = p.Character
-            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then 
-                init_draw(p)
-                local data = cache
 ```
