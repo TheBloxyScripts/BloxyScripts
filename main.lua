@@ -61,7 +61,7 @@ function Library:CreateWindow(settings)
         AccentColorB = 255,
         Transparency = 0,
         CornerRadius = 12,
-        Language = "RU" -- По умолчанию русский
+        Language = "RU"
     }
 
     local LocalizedElements = {}
@@ -240,11 +240,13 @@ function Library:CreateWindow(settings)
 
     CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
-    local Sidebar = Instance.new("Frame")
+    -- ИСПРАВЛЕНИЕ: Сделали Sidebar прокручиваемым (ScrollingFrame), чтобы кнопки не обрезались снизу
+    local Sidebar = Instance.new("ScrollingFrame")
     Sidebar.Size = UDim2.new(0, 140, 1, -40)
     Sidebar.Position = UDim2.fromOffset(0, 40)
     Sidebar.BackgroundTransparency = 1
     Sidebar.BorderSizePixel = 0
+    Sidebar.ScrollBarThickness = 2
     Sidebar.Parent = Main
 
     local SidebarList = Instance.new("UIListLayout")
@@ -256,7 +258,12 @@ function Library:CreateWindow(settings)
     SidebarPadding.PaddingTop = UDim.new(0, 8)
     SidebarPadding.PaddingLeft = UDim.new(0, 6)
     SidebarPadding.PaddingRight = UDim.new(0, 6)
+    SidebarPadding.PaddingBottom = UDim.new(0, 10)
     SidebarPadding.Parent = Sidebar
+
+    SidebarList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        Sidebar.CanvasSize = UDim2.new(0, 0, 0, SidebarList.AbsoluteContentSize.Y + 20)
+    end)
 
     local Container = Instance.new("Frame")
     Container.Size = UDim2.new(1, -150, 1, -50)
@@ -709,7 +716,7 @@ function Library:CreateWindow(settings)
     InfoTab:AddDynamicLabel({EN = "Place ID: ", RU = "Place ID: "}, function() return tostring(game.PlaceId) end)
 
     ---------------------------------------------------------
-    -- 2. ВКЛАДКА "НАСТРОЙКИ" (Порядок 99 - в самый низ)
+    -- 2. ВКЛАДКА "НАСТРОЙКИ" (Порядок 99 - будет в самом низу с прокруткой)
     ---------------------------------------------------------
     local SettingsTab = WindowAPI:CreateTab({EN = "Settings", RU = "Настройки"}, 99)
 
