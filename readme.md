@@ -155,10 +155,8 @@ end)
 ```
 ## 6. Full Script Example
 ```Lua
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/TheBloxyScripts/BloxyScripts/main/main.lua"))()
 
-local Library = loadstring(game:HttpGet("[https://raw.githubusercontent.com/TheBloxyScripts/BloxyScripts/main/main.lua](https://raw.githubusercontent.com/TheBloxyScripts/BloxyScripts/main/main.lua)"))()
-
--- Creates the main cheat hub window
 local Window = Library:CreateWindow({
     Name = "BloxyScripts | Hub",
     LoadingTitle = "Loading modules...",
@@ -431,20 +429,63 @@ plrs.PlayerRemoving:Connect(function(p)
     end
 end)
 
--- Create "ESP" tab in navigation panel
-local EspTab = Hub:CreateTab("ESP")
-EspTab:AddSection("Visual Features")
-EspTab:AddToggle("Box ESP", "EspBox", false, function(s) state.esp_box = s end)
-EspTab:AddToggle("Health (HP)", "EspHp", false, function(s) state.esp_hp = s end)
-EspTab:AddToggle("Distance", "EspDist", false, function(s) state.esp_dist = s end)
-EspTab:AddToggle("Tracers (Lines)", "EspTracers", false, function(s) state.tracers = s end)
+-- =========================================================
+-- FRAMEWORK INTERFACE
+-- =========================================================
 
--- Create "Aimbot" tab in navigation panel
+-- Create "ESP" tab in the hub interface
+local EspTab = Hub:CreateTab("ESP")
+
+-- Add a visual section header inside the ESP tab
+EspTab:AddSection("Visual Features")
+
+-- Toggle for displaying boxes (Box ESP)
+-- Arguments: title text, config key, default value, callback function
+EspTab:AddToggle("Box ESP", "EspBox", false, function(s) 
+    state.esp_box = s 
+end)
+
+-- Toggle for displaying player health (HP)
+EspTab:AddToggle("Health (HP)", "EspHp", false, function(s) 
+    state.esp_hp = s 
+end)
+
+-- Toggle for displaying distance to players
+EspTab:AddToggle("Distance", "EspDist", false, function(s) 
+    state.esp_dist = s 
+end)
+
+-- Toggle for displaying tracer lines to players
+EspTab:AddToggle("Tracers (Lines)", "EspTracers", false, function(s) 
+    state.tracers = s 
+end)
+
+-- Create "Aimbot" tab in the hub interface
 local AimTab = Hub:CreateTab("Aimbot")
+
+-- Add section header for aimbot settings
 AimTab:AddSection("Auto-Lock Settings")
-AimTab:AddToggle("Enable Aimbot", "AimActive", false, function(s) state.aim = s end)
-AimTab:AddToggle("WallCheck", "AimWallCheck", false, function(s) state.wall_check = s end)
-AimTab:AddToggle("Show FOV", "AimFovVis", false, function(s) state.fov_visible = s end)
-AimTab:AddSlider("FOV Radius", "AimFovRad", 50, 400, 180, function(val) state.fov = val end)
+
+-- Toggle to enable/disable aimbot function
+AimTab:AddToggle("Enable Aimbot", "AimActive", false, function(s) 
+    state.aim = s 
+end)
+
+-- Toggle for wall check before locking onto target
+AimTab:AddToggle("Wall Check", "AimWallCheck", false, function(s) 
+    state.wall_check = s 
+end)
+
+-- Toggle to display the FOV radius circle on screen
+AimTab:AddToggle("Show FOV", "AimFovVis", false, function(s) 
+    state.fov_visible = s 
+end)
+
+-- Slider to configure the target acquisition FOV radius
+-- Arguments: text, config key, minimum, maximum, default value, callback
+AimTab:AddSlider("FOV Radius", "AimFovRad", 50, 400, 180, function(val) 
+    state.fov = val 
+end)
+
 
 ```
