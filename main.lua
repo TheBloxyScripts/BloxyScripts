@@ -62,7 +62,7 @@ function Library:CreateWindow(settings)
         AccentColorB = 255,
         Transparency = 0,
         CornerRadius = 12,
-        Language = "EN" -- По умолчанию английский
+        Language = "EN"
     }
 
     local LocalizedElements = {}
@@ -318,20 +318,6 @@ function Library:CreateWindow(settings)
         end
     end)
 
-    local function ApplyConfig()
-        Theme.Accent = Color3.fromRGB(Config.AccentColorR, Config.AccentColorG, Config.AccentColorB)
-        for _, elem in ipairs(AccentElements) do
-            if elem and elem.Parent then
-                if elem:IsA("UIStroke") then elem.Color = Theme.Accent
-                elseif elem:IsA("TextButton") or elem:IsA("Frame") then elem.BackgroundColor3 = Theme.Accent end
-            end
-        end
-        local alpha = Config.Transparency / 100
-        for _, f in ipairs(AllFrames) do if f and f.Parent then f.BackgroundTransparency = alpha end end
-        for _, corner in ipairs(AllCorners) do if corner and corner.Parent then corner.CornerRadius = UDim.new(0, Config.CornerRadius) end end
-    end
-
-    -- Обновление языка для элементов, поддерживающих таблицы локализации {EN = "...", RU = "..."}
     local function UpdateLanguage()
         for _, item in ipairs(LocalizedElements) do
             if item.Label and item.Label.Parent then
@@ -363,7 +349,6 @@ function Library:CreateWindow(settings)
         end
     end
 
-    -- Теперь можно передавать строку либо таблицу локализации: {EN = "Info", RU = "Инфо"}
     function WindowAPI:CreateTab(tabName, customOrder)
         local initialText = type(tabName) == "table" and (tabName[Config.Language] or tabName["EN"]) or tabName
         
@@ -636,7 +621,7 @@ function Library:CreateWindow(settings)
                 Fill.Size = UDim2.new(pos, 0, 1, 0)
                 
                 local pText = type(sliderText) == "table" and (sliderText[Config.Language] or sliderText["EN"]) or sliderText
-                Label.Text = pText .. ": " + val
+                Label.Text = pText .. ": " .. tostring(val)
                 if callback then callback(val) end
             end
 
@@ -673,7 +658,7 @@ function Library:CreateWindow(settings)
     end
 
     ---------------------------------------------------------
-    -- 1. ВКЛАДКА "INFO" (Теперь строго сверху — порядок 1)
+    -- 1. ВКЛАДКА "INFO" (Строго сверху — порядок 1)
     ---------------------------------------------------------
     local InfoTab = WindowAPI:CreateTab({EN = "Info", RU = "Инфо"}, 1)
     InfoTab:AddSection({EN = "Player Information", RU = "Информация об игроке"})
