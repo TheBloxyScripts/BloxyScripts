@@ -48,39 +48,39 @@ All examples below demonstrate both options.
 
 Tabs divide your hub's functionality into separate categories.
 Lua
-
+```lua
 -- Multi-language variant:
 local Tab = Window:CreateTab({EN = "Main", RU = "Главная"})
 
 -- Plain string variant:
 -- local Tab = Window:CreateTab("Главная")
-
+```
 ## 4. UI Elements
 Section
 
 A visual title-divider inside a tab.
 Lua
-
+```lua
 -- With multi-language:
 Tab:AddSection({EN = "Player Settings", RU = "Настройки игрока"})
 
 -- String variant:
 -- Tab:AddSection("Настройки игрока")
-
+```
 Button
 
 Executes code when clicked by the user.
 Lua
-
+```lua
 Tab:AddButton({EN = "Teleport to Spawn", RU = "Телепорт на спавн"}, function()
     print("Button clicked!")
 end)
 
 -- Or string variant:
 -- Tab:AddButton("Телепорт на спавн", function() ... end)
-
+```
 Toggle
-
+```lua
 An on/off switch with state persistence saved to the configuration.
 Lua
 
@@ -91,70 +91,70 @@ Tab:AddToggle({EN = "GodMode", RU = "Бессмертие"}, "GodModeKey", false
         print("Disabled")
     end
 end)
-
+```
     Arguments: Text (or language table), Configuration Key (string), Default Value (true/false), Callback function.
 
 Slider
 
 Selects a numeric value within a specified range.
 Lua
-
+```lua
 Tab:AddSlider({EN = "WalkSpeed", RU = "Скорость бега"}, "SpeedKey", 16, 250, 16, function(value)
     game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
 end)
-
+```
     Arguments: Text, Configuration Key, Minimum, Maximum, Default Value, Callback function.
 
 Dropdown
 
 Selects a single option from a list.
 Lua
-
+```lua
 Tab:AddDropdown({EN = "Target Part", RU = "Часть тела"}, "TargetPartKey", {"Head", "HumanoidRootPart"}, "Head", function(selected)
     print("Selected: " .. selected)
 end)
-
+```
     Arguments: Text, Configuration Key, Options Table, Default Value, Callback function.
 
 Textbox
 
 A field for user input.
 Lua
-
+```lua
 Tab:AddTextbox({EN = "Custom Message", RU = "Сообщение"}, "MsgKey", "Hello!", function(text)
     print("Entered: " .. text)
 end)
-
+```
     Arguments: Text, Configuration Key, Default Placeholder, Callback function.
 
 Static Label
 
 A simple text hint or label.
 Lua
-
+```lua
 Tab:AddLabel({EN = "Status: Active", RU = "Статус: Активен"})
-
+```
 Dynamic Label
 
 A label that automatically updates its text based on a return value function.
 Lua
-
+```lua
 Tab:AddDynamicLabel({EN = "FPS: ", RU = "FPS: "}, function()
     return math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Receive Kbps"]:GetValue())
 end)
-
+```
 ## 5. Themes & Color Customization
 
 You can programmatically control the interface accent colors (for instance, via settings menu buttons):
 Lua
-
+```lua
 SettingsTab:AddButton({EN = "Custom Neon Theme", RU = "Неоновая тема"}, function()
     -- Pass a custom Color3 to modify framework accent colors
     UpdateThemeColors(Color3.fromRGB(0, 255, 200))
 end)
-
+```
 ## 6. Full Script Example
-Lua
+```Lua
 
 local Library = loadstring(game:HttpGet("[https://raw.githubusercontent.com/TheBloxyScripts/BloxyScripts/main/main.lua](https://raw.githubusercontent.com/TheBloxyScripts/BloxyScripts/main/main.lua)"))()
 
@@ -360,4 +360,95 @@ loop = r_service.RenderStepped:Connect(function()
             local char = p.Character
             if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
                 init_draw(p)
+                local data = cache[p]
+                local root = char.HumanoidRootPart
+                local head = char:FindFirstChild("Head") or root
+                local s_pos, is_on_screen = get_screen_data(root.Position)
+                local distance = (cam.CFrame.Position - root.Position).Magnitude
+                local color = Color3.fromHSV(math.clamp(distance / state.max_dist, 0, 0.33), 1, 1)
+
+                data.line.From = mid
+                data.line.To = s_pos
+                data.line.Color = color
+                data.line.Visible = state.tracers
+
+                if is_on_screen then
+                    local headPos = cam:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+                    local legPos = cam:WorldToViewportPoint(root.Position - Vector3.new(0, 3, 0))
+                    local height = math.abs(headPos.Y - legPos.Y)
+                    local width = height / 2
+                    local boxPos = Vector2.new(s_pos.X - width / 2, headPos.Y)
+
+                    if state.esp_box then
+                        data.box.Size = Vector2.new(width, height)
+                        data.box.Position = boxPos
+                        data.box.Color = color
+                        data.box.Visible = true
+                    else
+                        data.box.Visible = false
+                    end
+
+                    if state.esp_hp then
+                        data.hpText.Text = "HP: " .. math.floor(char.Humanoid.Health)
+                        data.hpText.Position = Vector2.new(s_pos.X, boxPos.Y - 15)
+                        data.hpText.Visible = true
+                    else
+                        data.hpText.Visible = false
+                    end
+
+                    if state.esp_dist then
+                        data.distText.Text = math.floor(distance) .. "m"
+                        data.distText.Position = Vector2.new(s_pos.X, boxPos.Y + height + 2)
+                        data.distText.Visible = true
+                    else
+                        data.distText.Visible = false
+                    end
+                else 
+                    data.box.Visible = false 
+                    data.hpText.Visible = false
+                    data.distText.Visible = false
+                end
+            elseif cache[p] then
+                cache[p].line.Visible = false
+                cache[p].box.Visible = false
+                cache[p].hpText.Visible = false
+                cache[p].distText.Visible = false
+            end
+        end
+    end
+end)
+
+plrs.PlayerRemoving:Connect(function(p)
+    if cache[p] then
+        cache[p].line:Remove()
+        cache[p].box:Remove()
+        cache[p].hpText:Remove()
+        cache[p].distText:Remove()
+        cache[p] = nil
+    end
+    if current_target_player == p then
+        current_target_player = nil
+    end
+end)
+
+-- Create "ESP" tab in navigation panel
+local EspTab = Hub:CreateTab("ESP")
+EspTab:AddSection("Visual Features")
+EspTab:AddToggle("Box ESP", "EspBox", false, function(s) state.esp_box = s end)
+EspTab:AddToggle("Health (HP)", "EspHp", false, function(s) state.esp_hp = s end)
+EspTab:AddToggle("Distance", "EspDist", false, function(s) state.esp_dist = s end)
+EspTab:AddToggle("Tracers (Lines)", "EspTracers", false, function(s) state.tracers = s end)
+
+-- Create "Aimbot" tab in navigation panel
+local AimTab = Hub:CreateTab("Aimbot")
+AimTab:AddSection("Auto-Lock Settings")
+AimTab:AddToggle("Enable Aimbot", "AimActive", false, function(s) state.aim = s end)
+AimTab:AddToggle("WallCheck", "AimWallCheck", false, function(s) state.wall_check = s end)
+AimTab:AddToggle("Show FOV", "AimFovVis", false, function(s) state.fov_visible = s end)
+AimTab:AddSlider("FOV Radius", "AimFovRad", 50, 400, 180, function(val) state.fov = val end)
+
+            local char = p.Character
+            if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then 
+                init_draw(p)
                 local data = cache
+```
