@@ -60,7 +60,7 @@ function Library:CreateWindow(settings)
     end
 
     ---------------------------------------------------------
-    -- КОНФИГУРАЦИЯ
+    -- КОНФИГУРАЦИЯ (Единое хранилище всех настроек)
     ---------------------------------------------------------
     local Config = {
         AccentColorR = 115,
@@ -75,6 +75,7 @@ function Library:CreateWindow(settings)
     local AccentElements = {}
     local AllCorners = {}
     local AllFrames = {}
+    local RegisteredElements = {} -- Хранилище ссылок на элементы для обновления при загрузке конфига
 
     local Theme = {
         Background = Color3.fromRGB(20, 20, 26),
@@ -566,7 +567,6 @@ function Library:CreateWindow(settings)
             return ConfigTextBox
         end
 
-        -- Элемент Выпадающий список (Dropdown)
         function Elements:AddDropdown(defaultText, options, callback)
             local isOpen = false
             local selectedOption = defaultText or "Выберите..."
@@ -656,7 +656,6 @@ function Library:CreateWindow(settings)
                 TweenService:Create(Arrow, TweenInfo.new(0.2), {Rotation = isOpen and 180 or 0}):Play()
             end)
 
-            -- Возвращаем метод обновления списка прямо из скрипта
             return {
                 Refresh = function(newOpts)
                     options = newOpts
@@ -723,7 +722,7 @@ function Library:CreateWindow(settings)
             CCorner.CornerRadius = UDim.new(1, 0)
             CCorner.Parent = Circle
 
-            local function UpdateVisual(newState)
+            local function UpdateVisual(newState, skipCallback)
                 state = newState
                 Config[configKey] = state
                 local targetPos = state and UDim2.fromOffset(20, 2) or UDim2.fromOffset(2, 2)
@@ -740,10 +739,17 @@ function Library:CreateWindow(settings)
                 Switch:TweenSizeAndPosition(Switch.Size, Switch.Position, Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
                 TweenService:Create(Switch, TweenInfo.new(0.15), {BackgroundColor3 = targetColor}):Play()
 
-                if callback then callback(state) end
+                if callback and not skipCallback then callback(state) end
             end
 
             Switch.MouseButton1Click:Connect(function() UpdateVisual(not state) end)
+            
+            -- Регистрируем элемент для авто-обновления при загрузке конфига
+            RegisteredElements[configKey] = {
+                Type = "Toggle",
+                Update = function(val) UpdateVisual(val, false) end
+            }
+
             if callback then callback(state) end
         end
 
@@ -804,7 +810,7 @@ function Library:CreateWindow(settings)
             FCorner2.CornerRadius = UDim.new(1, 0)
             FCorner2.Parent = Fill
 
-            local function SetSliderValue(val)
+            local function SetSliderValue(val, skipCallback)
                 val = math.clamp(val, min, max)
                 Config[configKey] = val
                 local pos = math.clamp((val - min) / (max - min), 0, 1)
@@ -812,14 +818,14 @@ function Library:CreateWindow(settings)
                 
                 local pText = type(sliderText) == "table" and (sliderText[Config.Language] or sliderText["EN"]) or sliderText
                 Label.Text = pText .. ": " .. tostring(val)
-                if callback then callback(val) end
+                if callback and not skipCallback then callback(val) end
             end
 
             local sliding = false
             local function UpdateFromInput(input)
                 local pos = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
                 local value = math.floor(min + (max - min) * pos)
-                SetSliderValue(value)
+                SetSliderValue(value, false)
             end
 
             Track.InputBegan:Connect(function(input)
@@ -841,6 +847,12 @@ function Library:CreateWindow(settings)
                 end
             end)
 
+            -- Регистрируем элемент для авто-обновления при загрузке конфига
+            RegisteredElements[configKey] = {
+                Type = "Slider",
+                Update = function(val) SetSliderValue(val, false) end
+            }
+
             if callback then callback(defaultVal) end
         end
 
@@ -848,11 +860,10 @@ function Library:CreateWindow(settings)
     end
 
     ---------------------------------------------------------
-    -- СИСТЕМА КОНФИГУРАЦИЙ (Сохранение, Загрузка, Удаление)
+    -- СИСТЕМА КОНФИГУРАЦИЙ
     ---------------------------------------------------------
     local currentConfigName = "default"
 
-    -- Функция получения списка всех файлов конфигов из папки
     local function GetConfigList()
         local list = {"default"}
         if listfiles and isfolder(folderName) then
@@ -892,9 +903,22 @@ function Library:CreateWindow(settings)
             if success and type(decoded) == "table" then
                 for k, v in pairs(decoded) do
                     Config[k] = v
+                    -- Если тумблер или слайдер зарегистрированы в интерфейсе, обновляем их визуально и применяем коллбек
+                    if RegisteredElements[k] then
+                        RegisteredElements[k].Update(v)
+                    end
                 end
+                -- Применяем цвета темы, если они сохранены
                 if Config.AccentColorR and Config.AccentColorG and Config.AccentColorB then
                     UpdateThemeColors(Color3.fromRGB(Config.AccentColorR, Config.AccentColorG, Config.AccentColorB))
+                end
+                -- Применяем прозрачность
+                if Config.Transparency then
+                    for _, frame in ipairs(AllFrames) do
+                        if frame and frame.Parent then
+                            frame.BackgroundTransparency = Config.Transparency / 100
+                        end
+                    end
                 end
             end
         end
@@ -934,20 +958,17 @@ function Library:CreateWindow(settings)
         SaveConfig(currentConfigName)
     end)
 
-    -- Выпадающий список с конфигами (при выборе конфига из него он СРАЗУ загружается)
     local dropdownFiles = GetConfigList()
     local ConfigDropdown = SettingsTab:AddDropdown("Выберите конфиг...", dropdownFiles, function(selected)
         currentConfigName = selected
         LoadConfig(selected)
     end)
 
-    -- Кнопка обновления списка конфигов
     SettingsTab:AddButton({EN = "Refresh Configs List", RU = "Обновить список конфигов"}, function()
         local updatedList = GetConfigList()
         ConfigDropdown.Refresh(updatedList)
     end)
 
-    -- Кнопка удаления выбранного конфига
     SettingsTab:AddButton({EN = "Delete Selected Config", RU = "Удалить выбранный конфиг"}, function()
         local target = ConfigDropdown.GetSelected()
         if target and target ~= "Выберите..." then
@@ -980,6 +1001,7 @@ function Library:CreateWindow(settings)
         Config.AccentColorR, Config.AccentColorG, Config.AccentColorB = 115, 80, 255
         UpdateThemeColors(Color3.fromRGB(115, 80, 255))
     end)
+    SettingsTab:AddButton({EN = "Blue Theme", RU = "Синяя тема"}, function`)}
     SettingsTab:AddButton({EN = "Blue Theme", RU = "Синяя тема"}, function()
         Config.AccentColorR, Config.AccentColorG, Config.AccentColorB = 50, 130, 255
         UpdateThemeColors(Color3.fromRGB(50, 130, 255))
