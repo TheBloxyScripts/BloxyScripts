@@ -75,7 +75,7 @@ function Library:CreateWindow(settings)
     local AccentElements = {}
     local AllCorners = {}
     local AllFrames = {}
-    local RegisteredElements = {} -- Хранилище ссылок на элементы для обновления при загрузке конфига
+    local RegisteredElements = {} -- Хранилище ссылок на элементы (тумблеры и слайдеры)
 
     local Theme = {
         Background = Color3.fromRGB(20, 20, 26),
@@ -663,6 +663,10 @@ function Library:CreateWindow(settings)
                 end,
                 GetSelected = function()
                     return selectedOption
+                end,
+                SetSelected = function(opt)
+                    selectedOption = tostring(opt)
+                    MainButton.Text = "  " .. selectedOption
                 end
             }
         end
@@ -742,9 +746,9 @@ function Library:CreateWindow(settings)
                 if callback and not skipCallback then callback(state) end
             end
 
-            Switch.MouseButton1Click:Connect(function() UpdateVisual(not state) end)
-            
-            -- Регистрируем элемент для авто-обновления при загрузке конфига
+            Switch.MouseButton1Click:Connect(function() UpdateVisual(not state, false) end)
+
+            -- Регистрируем для загрузки конфигов
             RegisteredElements[configKey] = {
                 Type = "Toggle",
                 Update = function(val) UpdateVisual(val, false) end
@@ -847,7 +851,7 @@ function Library:CreateWindow(settings)
                 end
             end)
 
-            -- Регистрируем элемент для авто-обновления при загрузке конфига
+            -- Регистрируем для загрузки конфигов
             RegisteredElements[configKey] = {
                 Type = "Slider",
                 Update = function(val) SetSliderValue(val, false) end
@@ -903,16 +907,16 @@ function Library:CreateWindow(settings)
             if success and type(decoded) == "table" then
                 for k, v in pairs(decoded) do
                     Config[k] = v
-                    -- Если тумблер или слайдер зарегистрированы в интерфейсе, обновляем их визуально и применяем коллбек
+                    -- Обновляем визуальное состояние тумблеров и слайдеров в интерфейсе
                     if RegisteredElements[k] then
                         RegisteredElements[k].Update(v)
                     end
                 end
-                -- Применяем цвета темы, если они сохранены
+                -- Обновляем цвета темы
                 if Config.AccentColorR and Config.AccentColorG and Config.AccentColorB then
                     UpdateThemeColors(Color3.fromRGB(Config.AccentColorR, Config.AccentColorG, Config.AccentColorB))
                 end
-                -- Применяем прозрачность
+                -- Обновляем прозрачность
                 if Config.Transparency then
                     for _, frame in ipairs(AllFrames) do
                         if frame and frame.Parent then
@@ -961,7 +965,15 @@ function Library:CreateWindow(settings)
     local dropdownFiles = GetConfigList()
     local ConfigDropdown = SettingsTab:AddDropdown("Выберите конфиг...", dropdownFiles, function(selected)
         currentConfigName = selected
-        LoadConfig(selected)
+    end)
+
+    -- Кнопка загрузки выбранного конфига
+    SettingsTab:AddButton({EN = "Load Selected Config", RU = "Загрузить конфиг"}, function()
+        local target = ConfigDropdown.GetSelected()
+        if target and target ~= "Выберите..." then
+            currentConfigName = target
+            LoadConfig(target)
+        end
     end)
 
     SettingsTab:AddButton({EN = "Refresh Configs List", RU = "Обновить список конфигов"}, function()
@@ -1001,7 +1013,6 @@ function Library:CreateWindow(settings)
         Config.AccentColorR, Config.AccentColorG, Config.AccentColorB = 115, 80, 255
         UpdateThemeColors(Color3.fromRGB(115, 80, 255))
     end)
-    SettingsTab:AddButton({EN = "Blue Theme", RU = "Синяя тема"}, function`)}
     SettingsTab:AddButton({EN = "Blue Theme", RU = "Синяя тема"}, function()
         Config.AccentColorR, Config.AccentColorG, Config.AccentColorB = 50, 130, 255
         UpdateThemeColors(Color3.fromRGB(50, 130, 255))
