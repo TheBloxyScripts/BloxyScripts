@@ -531,7 +531,6 @@ function Library:CreateWindow(settings)
             Btn.MouseButton1Click:Connect(function() if onClick then onClick() end end)
         end
 
-        -- Добавленный элемент TextBox для ввода текста (например, имени конфига)
         function Elements:AddTextBox(placeholder, defaultText, callback)
             local ConfigInputFrame = Instance.new("Frame")
             ConfigInputFrame.Size = UDim2.new(1, -5, 0, 32)
@@ -558,13 +557,115 @@ function Library:CreateWindow(settings)
             ConfigTextBox.TextXAlignment = Enum.TextXAlignment.Left
             ConfigTextBox.Parent = ConfigInputFrame
 
-            ConfigTextBox.FocusLost:Connect(function(enterPressed)
+            ConfigTextBox.FocusLost:Connect(function()
                 if callback then
                     callback(ConfigTextBox.Text)
                 end
             end)
 
             return ConfigTextBox
+        end
+
+        -- Элемент Выпадающий список (Dropdown)
+        function Elements:AddDropdown(defaultText, options, callback)
+            local isOpen = false
+            local selectedOption = defaultText or "Выберите..."
+
+            local DropdownFrame = Instance.new("Frame")
+            DropdownFrame.Size = UDim2.new(1, -5, 0, 32)
+            DropdownFrame.BackgroundColor3 = Theme.ElementBg
+            DropdownFrame.BackgroundTransparency = Config.Transparency / 100
+            DropdownFrame.ClipsDescendants = true
+            DropdownFrame.Parent = Page
+            table.insert(AllFrames, DropdownFrame)
+
+            local DCorner = Instance.new("UICorner")
+            DCorner.CornerRadius = UDim.new(0, Config.CornerRadius)
+            DCorner.Parent = DropdownFrame
+            table.insert(AllCorners, DCorner)
+
+            local MainButton = Instance.new("TextButton")
+            MainButton.Size = UDim2.new(1, 0, 0, 32)
+            MainButton.BackgroundTransparency = 1
+            MainButton.Text = "  " .. selectedOption
+            MainButton.TextColor3 = Theme.Text
+            MainButton.TextSize = 11
+            MainButton.Font = Enum.Font.GothamMedium
+            MainButton.TextXAlignment = Enum.TextXAlignment.Left
+            MainButton.Parent = DropdownFrame
+
+            local Arrow = Instance.new("TextLabel")
+            Arrow.Size = UDim2.fromOffset(30, 32)
+            Arrow.Position = UDim2.new(1, -30, 0, 0)
+            Arrow.BackgroundTransparency = 1
+            Arrow.Text = "▼"
+            Arrow.TextColor3 = Theme.TextDark
+            Arrow.TextSize = 10
+            Arrow.Parent = DropdownFrame
+
+            local OptionsContainer = Instance.new("ScrollingFrame")
+            OptionsContainer.Size = UDim2.new(1, 0, 0, 0)
+            OptionsContainer.Position = UDim2.fromOffset(0, 32)
+            OptionsContainer.BackgroundTransparency = 1
+            OptionsContainer.BorderSizePixel = 0
+            OptionsContainer.ScrollBarThickness = 2
+            OptionsContainer.Parent = DropdownFrame
+
+            local OptLayout = Instance.new("UIListLayout")
+            OptLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            OptLayout.Parent = OptionsContainer
+
+            local function RefreshOptions(newOptions)
+                for _, child in ipairs(OptionsContainer:GetChildren()) do
+                    if child:IsA("TextButton") then child:Destroy() end
+                end
+
+                local totalHeight = 0
+                for _, opt in ipairs(newOptions) do
+                    local OptBtn = Instance.new("TextButton")
+                    OptBtn.Size = UDim2.new(1, 0, 0, 28)
+                    OptBtn.BackgroundColor3 = Theme.ElementBg
+                    OptBtn.BackgroundTransparency = 1
+                    OptBtn.Text = "  " .. tostring(opt)
+                    OptBtn.TextColor3 = Theme.TextDark
+                    OptBtn.TextSize = 11
+                    OptBtn.Font = Enum.Font.Gotham
+                    OptBtn.TextXAlignment = Enum.TextXAlignment.Left
+                    OptBtn.Parent = OptionsContainer
+
+                    OptBtn.MouseButton1Click:Connect(function()
+                        selectedOption = tostring(opt)
+                        MainButton.Text = "  " .. selectedOption
+                        isOpen = false
+                        TweenService:Create(DropdownFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, -5, 0, 32)}):Play()
+                        TweenService:Create(Arrow, TweenInfo.new(0.2), {Rotation = 0}):Play()
+                        if callback then callback(selectedOption) end
+                    end)
+                    totalHeight = totalHeight + 28
+                end
+                OptionsContainer.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
+            end
+
+            RefreshOptions(options)
+
+            MainButton.MouseButton1Click:Connect(function()
+                isOpen = not isOpen
+                local targetHeight = isOpen and math.clamp(#options * 28 + 35, 35, 130) or 32
+                TweenService:Create(DropdownFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, -5, 0, targetHeight)}):Play()
+                TweenService:Create(OptionsContainer, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, targetHeight - 32)}):Play()
+                TweenService:Create(Arrow, TweenInfo.new(0.2), {Rotation = isOpen and 180 or 0}):Play()
+            end)
+
+            -- Возвращаем метод обновления списка прямо из скрипта
+            return {
+                Refresh = function(newOpts)
+                    options = newOpts
+                    RefreshOptions(options)
+                end,
+                GetSelected = function()
+                    return selectedOption
+                end
+            }
         end
 
         function Elements:AddToggle(toggleText, configKey, default, callback)
@@ -747,17 +848,37 @@ function Library:CreateWindow(settings)
     end
 
     ---------------------------------------------------------
-    -- СИСТЕМА КОНФИГУРАЦИЙ (Сохранение / Загрузка)
+    -- СИСТЕМА КОНФИГУРАЦИЙ (Сохранение, Загрузка, Удаление)
     ---------------------------------------------------------
     local currentConfigName = "default"
 
+    -- Функция получения списка всех файлов конфигов из папки
+    local function GetConfigList()
+        local list = {"default"}
+        if listfiles and isfolder(folderName) then
+            local success, files = pcall(function() return listfiles(folderName) end)
+            if success and files then
+                list = {}
+                for _, file in ipairs(files) do
+                    local name = file:match("([^/\\]+)%..+$")
+                    if name then
+                        table.insert(list, name)
+                    end
+                end
+                if #list == 0 then table.insert(list, "default") end
+            end
+        end
+        return list
+    end
+
     local function SaveConfig(name)
         if not writefile then return end
+        local cfgName = (name and name ~= "") and name or "default"
         local success, encoded = pcall(function()
             return HttpService:JSONEncode(Config)
         end)
         if success then
-            writefile(folderName .. "/" .. (name ~= "" and name or "default") .. ".json", encoded)
+            writefile(folderName .. "/" .. cfgName .. ".json", encoded)
         end
     end
 
@@ -772,11 +893,18 @@ function Library:CreateWindow(settings)
                 for k, v in pairs(decoded) do
                     Config[k] = v
                 end
-                -- Перезагружаем интерфейс/применяем цвета если нужно
                 if Config.AccentColorR and Config.AccentColorG and Config.AccentColorB then
                     UpdateThemeColors(Color3.fromRGB(Config.AccentColorR, Config.AccentColorG, Config.AccentColorB))
                 end
             end
+        end
+    end
+
+    local function DeleteConfig(name)
+        if not delfile or not isfile then return end
+        local fileName = folderName .. "/" .. (name ~= "" and name or "default") .. ".json"
+        if isfile(fileName) then
+            pcall(function() delfile(fileName) end)
         end
     end
 
@@ -796,10 +924,9 @@ function Library:CreateWindow(settings)
     ---------------------------------------------------------
     local SettingsTab = WindowAPI:CreateTab({EN = "Settings", RU = "Настройки"}, 99)
 
-    -- Добавление системы конфигов в настройки
     SettingsTab:AddSection({EN = "Config Management", RU = "Управление конфигами"})
     
-    SettingsTab:AddTextBox("Введите имя файла конфига...", "default", function(text)
+    SettingsTab:AddTextBox("Имя нового конфига...", "default", function(text)
         currentConfigName = text
     end)
 
@@ -807,8 +934,27 @@ function Library:CreateWindow(settings)
         SaveConfig(currentConfigName)
     end)
 
-    SettingsTab:AddButton({EN = "Load Config", RU = "Загрузить конфиг"}, function()
-        LoadConfig(currentConfigName)
+    -- Выпадающий список с конфигами (при выборе конфига из него он СРАЗУ загружается)
+    local dropdownFiles = GetConfigList()
+    local ConfigDropdown = SettingsTab:AddDropdown("Выберите конфиг...", dropdownFiles, function(selected)
+        currentConfigName = selected
+        LoadConfig(selected)
+    end)
+
+    -- Кнопка обновления списка конфигов
+    SettingsTab:AddButton({EN = "Refresh Configs List", RU = "Обновить список конфигов"}, function()
+        local updatedList = GetConfigList()
+        ConfigDropdown.Refresh(updatedList)
+    end)
+
+    -- Кнопка удаления выбранного конфига
+    SettingsTab:AddButton({EN = "Delete Selected Config", RU = "Удалить выбранный конфиг"}, function()
+        local target = ConfigDropdown.GetSelected()
+        if target and target ~= "Выберите..." then
+            DeleteConfig(target)
+            local updatedList = GetConfigList()
+            ConfigDropdown.Refresh(updatedList)
+        end
     end)
 
     SettingsTab:AddSection({EN = "Language", RU = "Язык интерфейса"})
