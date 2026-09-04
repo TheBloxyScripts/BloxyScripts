@@ -77,6 +77,38 @@ function Library:CreateWindow(settings)
         return Color3.fromRGB(Config.AccentColorR, Config.AccentColorG, Config.AccentColorB)
     end
 
+    -- Система сохранения и загрузки конфигураций
+    local FullConfigPath = ConfigFolder .. "/" .. (settings.ConfigName or DefaultConfigName)
+
+    local function SaveConfig()
+        if not writefile then return end
+        local success, err = pcall(function()
+            local json = HttpService:JSONEncode(Config)
+            writefile(FullConfigPath, json)
+        end)
+        if not success then
+            warn("Failed to save config: " .. tostring(err))
+        end
+    end
+
+    local function LoadConfig()
+        if not readfile or not isfile or not isfile(FullConfigPath) then return end
+        local success, err = pcall(function()
+            local json = readfile(FullConfigPath)
+            local data = HttpService:JSONDecode(json)
+            if typeof(data) == "table" then
+                for k, v in pairs(data) do
+                    Config[k] = v
+                end
+            end
+        end)
+        if not success then
+            warn("Failed to load config: " .. tostring(err))
+        end
+    end
+
+    LoadConfig()
+
     local Theme = {
         Background = Color3.fromRGB(20, 20, 26),
         Header     = Color3.fromRGB(15, 15, 20),
@@ -162,6 +194,23 @@ function Library:CreateWindow(settings)
     LoadingBarFillCorner.CornerRadius = UDim.new(1, 0)
     LoadingBarFillCorner.Parent = LoadingBarFill
 
+    -- Имитация загрузки перед показом главного окна
+    task.spawn(function()
+        TweenService:Create(LoadingBarFill, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)}):Play()
+        task.wait(1)
+        TweenService:Create(SplashFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.fromOffset(0, 0), BackgroundTransparency = 1}):Play()
+        task.wait(0.3)
+        SplashFrame:Destroy()
+        Main.Visible = true
+        
+        -- Синхронизируем состояние UI с загруженным конфигом
+        for _, updater in ipairs(UIElementUpdaters) do
+            if Config[updater.Key] ~= nil then
+                updater.Update(Config[updater.Key])
+            end
+        end
+    end)
+
     local Main = Instance.new("Frame")
     Main.Name = "MainFrame"
     Main.Size = UDim2.fromOffset(540, 370)
@@ -240,7 +289,10 @@ function Library:CreateWindow(settings)
     CloseBtn.Font = Enum.Font.GothamBold
     CloseBtn.Parent = Header
 
-    CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+    CloseBtn.MouseButton1Click:Connect(function() 
+        SaveConfig()
+        ScreenGui:Destroy() 
+    end)
 
     local Sidebar = Instance.new("ScrollingFrame")
     Sidebar.Size = UDim2.new(0, 140, 1, -40)
@@ -325,29 +377,6 @@ function Library:CreateWindow(settings)
             dragging = false
         end
     end)
-
-    local function ApplyConfig()
-        local newAccent = GetAccentColor()
-        for _, elem in ipairs(AccentElements) do
-            if elem then
-                if elem:IsA("TextButton") or elem:IsA("Frame") then
-                    TweenService:Create(elem, TweenInfo.new(0.2), {BackgroundColor3 = newAccent}):Play()
-                elseif elem:IsA("UIStroke") then
-                    elem.Color = newAccent
-                end
-            end
-        end
-        for _, frame in ipairs(AllFrames) do
-            if frame and frame.Parent then
-                frame.BackgroundTransparency = Config.Transparency / 100
-            end
-        end
-        for _, corner in ipairs(AllCorners) do
-            if corner and corner.Parent then
-                corner.CornerRadius = UDim.new(0, Config.CornerRadius)
-            end
-        end
-    end
 
     local WindowAPI = {}
     local Tabs = {}
@@ -502,6 +531,8 @@ function Library:CreateWindow(settings)
             local function UpdateVisual(newState)
                 state = newState
                 Config[configKey] = state
+                SaveConfig() -- Автосохранение при изменении
+                
                 local targetPos = state and UDim2.fromOffset(20, 2) or UDim2.fromOffset(2, 2)
                 local targetColor = state and GetAccentColor() or Theme.ToggleOff
 
@@ -578,6 +609,8 @@ function Library:CreateWindow(settings)
             local function SetSliderValue(val)
                 val = math.clamp(val, min, max)
                 Config[configKey] = val
+                SaveConfig() -- Автосохранение
+                
                 local pos = math.clamp((val - min) / (max - min), 0, 1)
                 Fill.Size = UDim2.new(pos, 0, 1, 0)
                 Label.Text = sliderText .. ": " .. tostring(val)
@@ -672,7 +705,7 @@ function Library:CreateWindow(settings)
 
         function Elements:AddDropdown(dropdownText, configKey, options, defaultOption, callback)
             options = options or {"Нет элементов"}
-            local selected = defaultOption or options[1]
+            local selected = Config[configKey] or (defaultOption or options[1])
             Config[configKey] = selected
 
             local opened = false
@@ -732,7 +765,7 @@ function Library:CreateWindow(settings)
                     OptBtn.Size = UDim2.new(1, 0, 0, 30)
                     OptBtn.BackgroundColor3 = Theme.ElementBg
                     OptBtn.BackgroundTransparency = 1
-                    OptBtn.Text = "   " .. tostring(opt)
+                    OptBtn.Text = "    " .. tostring(opt)
                     OptBtn.TextColor3 = Theme.TextDark
                     OptBtn.TextSize = 11
                     OptBtn.Font = Enum.Font.Gotham
@@ -742,6 +775,8 @@ function Library:CreateWindow(settings)
                     OptBtn.MouseButton1Click:Connect(function()
                         selected = opt
                         Config[configKey] = selected
+                        SaveConfig() -- Автосохранение
+                        
                         Label.Text = dropdownText .. ": " .. tostring(selected)
                         opened = false
                         Arrow.Text = "▼"
@@ -758,7 +793,7 @@ function Library:CreateWindow(settings)
             Frame.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then
                     opened = not opened
-                    Arrow.Text = opened ? "▲" : "▼"
+                    Arrow.Text = opened and "▲" or "▼"
                     local targetH = opened and math.clamp(#options * 30 + 5, 30, 130) + 36 or 36
                     local listH = opened and math.clamp(#options * 30, 0, 130) or 0
                     TweenService:Create(Frame, TweenInfo.new(0.2), {Size = UDim2.new(1, -5, 0, targetH)}):Play()
@@ -772,6 +807,7 @@ function Library:CreateWindow(settings)
                 if not table.find(newOpts, selected) then
                     selected = newOpts[1] or "Нет элементов"
                     Config[configKey] = selected
+                    SaveConfig()
                     Label.Text = dropdownText .. ": " .. tostring(selected)
                 end
             end
