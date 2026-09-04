@@ -8,17 +8,26 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local LocalPlayer = Players.LocalPlayer
 local Library = {}
 
--- Определение инжектора
+-- Надежное определение инжектора
 local function GetExecutorName()
     local success, name = pcall(function()
         if identifyexecutor then
-            return identifyexecutor()
+            local execName, execVer = identifyexecutor()
+            return execName .. (execVer and (" " .. tostring(execVer)) or "")
+        elseif getexecutorname then
+            return getexecutorname()
         elseif syn then
             return "Synapse X"
         elseif KRNL_LOADED then
             return "Krnl"
+        elseif FLUXUS_LOADED then
+            return "Fluxus"
         elseif Delta then
             return "Delta"
+        elseif Celery then
+            return "Celery"
+        elseif Solara then
+            return "Solara"
         else
             return "Unknown"
         end
@@ -49,30 +58,30 @@ function Library:CreateWindow(settings)
     ---------------------------------------------------------
     local Locales = {
         ["RU"] = {
-            SettingsTab = "Настройки",
             InfoTab = "Инфо",
-            InterfaceCustomization = "Кастомизация интерфейса",
-            Transparency = "Прозрачность",
-            CornerRadius = "Скругление углов",
-            Language = "Язык / Language",
+            SettingsTab = "Настройки",
             PlayerInfo = "Информация об игроке",
             Username = "Ник: ",
             Executor = "Инжектор: ",
             Game = "Режим: ",
-            PlaceId = "Place ID: "
+            PlaceId = "Place ID: ",
+            InterfaceCustomization = "Кастомизация интерфейса",
+            Transparency = "Прозрачность",
+            CornerRadius = "Скругление углов",
+            Language = "Язык / Language"
         },
         ["EN"] = {
-            SettingsTab = "Settings",
             InfoTab = "Info",
-            InterfaceCustomization = "Interface Customization",
-            Transparency = "Transparency",
-            CornerRadius = "Corner Radius",
-            Language = "Language / Язык",
+            SettingsTab = "Settings",
             PlayerInfo = "Player Information",
             Username = "Username: ",
             Executor = "Executor: ",
             Game = "Game: ",
-            PlaceId = "Place ID: "
+            PlaceId = "Place ID: ",
+            InterfaceCustomization = "Interface Customization",
+            Transparency = "Transparency",
+            CornerRadius = "Corner Radius",
+            Language = "Language / Язык"
         }
     }
 
@@ -83,7 +92,7 @@ function Library:CreateWindow(settings)
         makefolder(configFolderName)
     end
 
-    local DefaultConfig = {
+    local Config = {
         AccentColorR = 115,
         AccentColorG = 80,
         AccentColorB = 255,
@@ -92,9 +101,8 @@ function Library:CreateWindow(settings)
         Language = "RU"
     }
 
-    local Config = table.clone(DefaultConfig)
     local UIElementUpdaters = {}
-    local LocalizedTexts = {} -- Хранилище для динамического обновления текста при смене языка
+    local LocalizedTexts = {} -- Динамический список для автоперевода текста
 
     local Theme = {
         Background = Color3.fromRGB(20, 20, 26),
@@ -364,20 +372,19 @@ function Library:CreateWindow(settings)
         for _, corner in ipairs(AllCorners) do if corner and corner.Parent then corner.CornerRadius = UDim.new(0, Config.CornerRadius) end end
     end
 
-    -- Функция смены языка для всех зарегистрированных элементов
+    -- Автоматическое обновление всех текстов при смене языка
     local function UpdateLanguage()
         local loc = Locales[Config.Language]
         if not loc then return end
         for _, item in ipairs(LocalizedTexts) do
             if item.Label and item.Label.Parent then
                 if item.Type == "Section" then
-                    item.Label.Text = string.upper(loc[item.Key] or item.Key)
+                    item.Label.Text = string.upper(loc[item.Key] or item.DefaultText or item.Key)
                 elseif item.Type == "Slider" then
-                    item.Label.Text = (loc[item.Key] or item.Key) .. ": " .. tostring(item.GetValue())
-                elseif item.Type == "Static" then
-                    item.Label.Text = loc[item.Key] or item.Key
-                elseif item.Type == "Tab" then
-                    item.Label.Text = loc[item.Key] or item.Key
+                    local prefix = loc[item.Key] or item.DefaultText or item.Key
+                    item.Label.Text = prefix .. ": " .. tostring(item.GetValue())
+                elseif item.Type == "Static" or item.Type == "Button" or item.Type == "Tab" then
+                    item.Label.Text = loc[item.Key] or item.DefaultText or item.Key
                 end
             end
         end
@@ -391,12 +398,20 @@ function Library:CreateWindow(settings)
     local FirstTab = true
     local TabOrderCounter = 1
 
+    function WindowAPI:SetLanguage(lang)
+        if Locales[lang] then
+            Config.Language = lang
+            UpdateLanguage()
+        end
+    end
+
     function WindowAPI:CreateTab(tabName, customOrder, localeKey)
+        local initialText = (localeKey and Locales[Config.Language][localeKey]) or tabName
         local TabBtn = Instance.new("TextButton")
         TabBtn.Size = UDim2.new(1, 0, 0, 30)
         TabBtn.BackgroundColor3 = Theme.ElementBg
         TabBtn.BackgroundTransparency = Config.Transparency / 100
-        TabBtn.Text = tabName
+        TabBtn.Text = initialText
         TabBtn.TextColor3 = Theme.TextDark
         TabBtn.TextSize = 11
         TabBtn.Font = Enum.Font.GothamMedium
@@ -406,7 +421,7 @@ function Library:CreateWindow(settings)
         table.insert(AllFrames, TabBtn)
 
         if localeKey then
-            table.insert(LocalizedTexts, {Type = "Tab", Label = TabBtn, Key = localeKey})
+            table.insert(LocalizedTexts, {Type = "Tab", Label = TabBtn, Key = localeKey, DefaultText = tabName})
         end
 
         local BtnCorner = Instance.new("UICorner")
@@ -461,8 +476,9 @@ function Library:CreateWindow(settings)
         local Elements = {Page = Page}
 
         function Elements:AddSection(sectionTitle, localeKey)
+            local initText = (localeKey and Locales[Config.Language][localeKey]) or sectionTitle
             local Label = Instance.new("TextLabel")
-            Label.Text = string.upper(sectionTitle)
+            Label.Text = string.upper(initText)
             Label.Size = UDim2.new(1, -5, 0, 20)
             Label.TextColor3 = Theme.TextDark
             Label.TextSize = 10
@@ -472,13 +488,14 @@ function Library:CreateWindow(settings)
             Label.Parent = Page
 
             if localeKey then
-                table.insert(LocalizedTexts, {Type = "Section", Label = Label, Key = localeKey})
+                table.insert(LocalizedTexts, {Type = "Section", Label = Label, Key = localeKey, DefaultText = sectionTitle})
             end
         end
 
         function Elements:AddLabel(labelText, localeKey)
+            local initText = (localeKey and Locales[Config.Language][localeKey]) or labelText
             local Label = Instance.new("TextLabel")
-            Label.Text = labelText
+            Label.Text = initText
             Label.Size = UDim2.new(1, -5, 0, 25)
             Label.TextColor3 = Theme.Text
             Label.TextSize = 11
@@ -488,22 +505,27 @@ function Library:CreateWindow(settings)
             Label.Parent = Page
 
             if localeKey then
-                table.insert(LocalizedTexts, {Type = "Static", Label = Label, Key = localeKey})
+                table.insert(LocalizedTexts, {Type = "Static", Label = Label, Key = localeKey, DefaultText = labelText})
             end
             return Label
         end
 
-        function Elements:AddButton(btnText, onClick)
+        function Elements:AddButton(btnText, onClick, localeKey)
+            local initText = (localeKey and Locales[Config.Language][localeKey]) or btnText
             local Btn = Instance.new("TextButton")
             Btn.Size = UDim2.new(1, -5, 0, 32)
             Btn.BackgroundColor3 = Theme.ElementBg
             Btn.BackgroundTransparency = Config.Transparency / 100
-            Btn.Text = btnText
+            Btn.Text = initText
             Btn.TextColor3 = Theme.Text
             Btn.TextSize = 11
             Btn.Font = Enum.Font.GothamMedium
             Btn.Parent = Page
             table.insert(AllFrames, Btn)
+
+            if localeKey then
+                table.insert(LocalizedTexts, {Type = "Button", Label = Btn, Key = localeKey, DefaultText = btnText})
+            end
 
             local BCorner = Instance.new("UICorner")
             BCorner.CornerRadius = UDim.new(0, Config.CornerRadius)
@@ -513,7 +535,7 @@ function Library:CreateWindow(settings)
             Btn.MouseButton1Click:Connect(function() if onClick then onClick() end end)
         end
 
-        function Elements:AddToggle(toggleText, configKey, default, callback)
+        function Elements:AddToggle(toggleText, configKey, default, callback, localeKey)
             local state = Config[configKey] ~= nil and Config[configKey] or (default or false)
             Config[configKey] = state
 
@@ -529,8 +551,9 @@ function Library:CreateWindow(settings)
             FCorner.Parent = Frame
             table.insert(AllCorners, FCorner)
 
+            local initText = (localeKey and Locales[Config.Language][localeKey]) or toggleText
             local Label = Instance.new("TextLabel")
-            Label.Text = toggleText
+            Label.Text = initText
             Label.Size = UDim2.new(1, -55, 1, 0)
             Label.Position = UDim2.fromOffset(10, 0)
             Label.TextColor3 = Theme.Text
@@ -539,6 +562,10 @@ function Library:CreateWindow(settings)
             Label.TextXAlignment = Enum.TextXAlignment.Left
             Label.BackgroundTransparency = 1
             Label.Parent = Frame
+
+            if localeKey then
+                table.insert(LocalizedTexts, {Type = "Static", Label = Label, Key = localeKey, DefaultText = toggleText})
+            end
 
             local Switch = Instance.new("TextButton")
             Switch.Size = UDim2.fromOffset(36, 18)
@@ -603,8 +630,9 @@ function Library:CreateWindow(settings)
             FCorner.Parent = Frame
             table.insert(AllCorners, FCorner)
 
+            local prefixText = (localeKey and Locales[Config.Language][localeKey]) or sliderText
             local Label = Instance.new("TextLabel")
-            Label.Text = sliderText .. ": " .. tostring(defaultVal)
+            Label.Text = prefixText .. ": " .. tostring(defaultVal)
             Label.Size = UDim2.new(1, -20, 0, 20)
             Label.Position = UDim2.fromOffset(10, 2)
             Label.TextColor3 = Theme.Text
@@ -619,6 +647,7 @@ function Library:CreateWindow(settings)
                     Type = "Slider",
                     Label = Label,
                     Key = localeKey,
+                    DefaultText = sliderText,
                     GetValue = function() return Config[configKey] end
                 })
             end
@@ -648,8 +677,9 @@ function Library:CreateWindow(settings)
                 Config[configKey] = val
                 local pos = math.clamp((val - min) / (max - min), 0, 1)
                 Fill.Size = UDim2.new(pos, 0, 1, 0)
-                local prefix = localeKey and (Locales[Config.Language][localeKey] or sliderText) or sliderText
-                Label.Text = prefix .. ": " .. tostring(val)
+                local currentLoc = Locales[Config.Language]
+                local pText = localeKey and currentLoc and (currentLoc[localeKey] or sliderText) or sliderText
+                Label.Text = pText .. ": " .. tostring(val)
                 if callback then callback(val) end
             end
 
@@ -688,9 +718,9 @@ function Library:CreateWindow(settings)
     end
 
     ---------------------------------------------------------
-    -- ВКЛАДКА "ИНФО" (Информация об игре и игроке)
+    -- 1. ВКЛАДКА "ИНФО" (Теперь строго сверху, порядок 1)
     ---------------------------------------------------------
-    local InfoTab = WindowAPI:CreateTab("Инфо", 98, "InfoTab")
+    local InfoTab = WindowAPI:CreateTab("Инфо", 1, "InfoTab")
     InfoTab:AddSection("Информация об игроке", "PlayerInfo")
     
     InfoTab:AddLabel(Locales[Config.Language].Username .. LocalPlayer.Name, "Username")
@@ -699,7 +729,7 @@ function Library:CreateWindow(settings)
     InfoTab:AddLabel(Locales[Config.Language].PlaceId .. tostring(game.PlaceId), "PlaceId")
 
     ---------------------------------------------------------
-    -- ВКЛАДКА "НАСТРОЙКИ" (Автоматическая)
+    -- 2. ВКЛАДКА "НАСТРОЙКИ"
     ---------------------------------------------------------
     local SettingsTab = WindowAPI:CreateTab("Настройки", 99, "SettingsTab")
     SettingsTab:AddSection("Кастомизация интерфейса", "InterfaceCustomization")
@@ -716,15 +746,13 @@ function Library:CreateWindow(settings)
 
     SettingsTab:AddSection("Язык / Language", "Language")
     SettingsTab:AddButton("Русский (RU)", function()
-        Config.Language = "RU"
-        UpdateLanguage()
+        WindowAPI:SetLanguage("RU")
     end)
     SettingsTab:AddButton("English (EN)", function()
-        Config.Language = "EN"
-        UpdateLanguage()
+        WindowAPI:SetLanguage("EN")
     end)
 
-    -- Запуск сплеш-скрина анимации
+    -- Анимация загрузки
     task.spawn(function()
         TweenService:Create(LoadingBarFill, TweenInfo.new(1.0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)}):Play()
         task.wait(1.1)
