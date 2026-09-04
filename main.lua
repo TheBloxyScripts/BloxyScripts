@@ -4,6 +4,7 @@ local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
+local HttpService = game:GetService("HttpService")
 
 local LocalPlayer = Players.LocalPlayer
 local Library = {}
@@ -51,6 +52,12 @@ function Library:CreateWindow(settings)
     local windowName = settings.Name or "Universal Hub"
     local loadingTitle = settings.LoadingTitle or windowName
     local loadingSubtitle = settings.LoadingSubtitle or "by Developer"
+    local folderName = settings.FolderName or "BloxyConfigs"
+
+    -- Создаем папку для конфигов, если её нет
+    if makefolder and not isfolder(folderName) then
+        pcall(function() makefolder(folderName) end)
+    end
 
     ---------------------------------------------------------
     -- КОНФИГУРАЦИЯ
@@ -524,6 +531,42 @@ function Library:CreateWindow(settings)
             Btn.MouseButton1Click:Connect(function() if onClick then onClick() end end)
         end
 
+        -- Добавленный элемент TextBox для ввода текста (например, имени конфига)
+        function Elements:AddTextBox(placeholder, defaultText, callback)
+            local ConfigInputFrame = Instance.new("Frame")
+            ConfigInputFrame.Size = UDim2.new(1, -5, 0, 32)
+            ConfigInputFrame.BackgroundColor3 = Theme.ElementBg
+            ConfigInputFrame.BackgroundTransparency = Config.Transparency / 100
+            ConfigInputFrame.Parent = Page
+            table.insert(AllFrames, ConfigInputFrame)
+
+            local CInputCorner = Instance.new("UICorner")
+            CInputCorner.CornerRadius = UDim.new(0, Config.CornerRadius)
+            CInputCorner.Parent = ConfigInputFrame
+            table.insert(AllCorners, CInputCorner)
+
+            local ConfigTextBox = Instance.new("TextBox")
+            ConfigTextBox.Size = UDim2.new(1, -20, 1, 0)
+            ConfigTextBox.Position = UDim2.fromOffset(10, 0)
+            ConfigTextBox.PlaceholderText = placeholder or "Введите текст..."
+            ConfigTextBox.Text = defaultText or ""
+            ConfigTextBox.TextColor3 = Theme.Text
+            ConfigTextBox.PlaceholderColor3 = Theme.TextDark
+            ConfigTextBox.Font = Enum.Font.Gotham
+            ConfigTextBox.TextSize = 11
+            ConfigTextBox.BackgroundTransparency = 1
+            ConfigTextBox.TextXAlignment = Enum.TextXAlignment.Left
+            ConfigTextBox.Parent = ConfigInputFrame
+
+            ConfigTextBox.FocusLost:Connect(function(enterPressed)
+                if callback then
+                    callback(ConfigTextBox.Text)
+                end
+            end)
+
+            return ConfigTextBox
+        end
+
         function Elements:AddToggle(toggleText, configKey, default, callback)
             local state = Config[configKey] ~= nil and Config[configKey] or (default or false)
             Config[configKey] = state
@@ -704,6 +747,40 @@ function Library:CreateWindow(settings)
     end
 
     ---------------------------------------------------------
+    -- СИСТЕМА КОНФИГУРАЦИЙ (Сохранение / Загрузка)
+    ---------------------------------------------------------
+    local currentConfigName = "default"
+
+    local function SaveConfig(name)
+        if not writefile then return end
+        local success, encoded = pcall(function()
+            return HttpService:JSONEncode(Config)
+        end)
+        if success then
+            writefile(folderName .. "/" .. (name ~= "" and name or "default") .. ".json", encoded)
+        end
+    end
+
+    local function LoadConfig(name)
+        if not readfile or not isfile then return end
+        local fileName = folderName .. "/" .. (name ~= "" and name or "default") .. ".json"
+        if isfile(fileName) then
+            local success, decoded = pcall(function()
+                return HttpService:JSONDecode(readfile(fileName))
+            end)
+            if success and type(decoded) == "table" then
+                for k, v in pairs(decoded) do
+                    Config[k] = v
+                end
+                -- Перезагружаем интерфейс/применяем цвета если нужно
+                if Config.AccentColorR and Config.AccentColorG and Config.AccentColorB then
+                    UpdateThemeColors(Color3.fromRGB(Config.AccentColorR, Config.AccentColorG, Config.AccentColorB))
+                end
+            end
+        end
+    end
+
+    ---------------------------------------------------------
     -- 1. ВКЛАДКА "ИНФО"
     ---------------------------------------------------------
     local InfoTab = WindowAPI:CreateTab({EN = "Info", RU = "Инфо"}, 1)
@@ -718,6 +795,21 @@ function Library:CreateWindow(settings)
     -- 2. ВКЛАДКА "НАСТРОЙКИ"
     ---------------------------------------------------------
     local SettingsTab = WindowAPI:CreateTab({EN = "Settings", RU = "Настройки"}, 99)
+
+    -- Добавление системы конфигов в настройки
+    SettingsTab:AddSection({EN = "Config Management", RU = "Управление конфигами"})
+    
+    SettingsTab:AddTextBox("Введите имя файла конфига...", "default", function(text)
+        currentConfigName = text
+    end)
+
+    SettingsTab:AddButton({EN = "Save Config", RU = "Сохранить конфиг"}, function()
+        SaveConfig(currentConfigName)
+    end)
+
+    SettingsTab:AddButton({EN = "Load Config", RU = "Загрузить конфиг"}, function()
+        LoadConfig(currentConfigName)
+    end)
 
     SettingsTab:AddSection({EN = "Language", RU = "Язык интерфейса"})
     SettingsTab:AddButton({EN = "Switch to Russian (RU)", RU = "Включить русский (RU)"}, function()
@@ -739,19 +831,22 @@ function Library:CreateWindow(settings)
 
     SettingsTab:AddSection({EN = "Theme Accent", RU = "Акцентный цвет"})
     SettingsTab:AddButton({EN = "Purple Theme", RU = "Фиолетовая тема"}, function()
+        Config.AccentColorR, Config.AccentColorG, Config.AccentColorB = 115, 80, 255
         UpdateThemeColors(Color3.fromRGB(115, 80, 255))
     end)
     SettingsTab:AddButton({EN = "Blue Theme", RU = "Синяя тема"}, function()
+        Config.AccentColorR, Config.AccentColorG, Config.AccentColorB = 50, 130, 255
         UpdateThemeColors(Color3.fromRGB(50, 130, 255))
     end)
     SettingsTab:AddButton({EN = "Green Theme", RU = "Зеленая тема"}, function()
+        Config.AccentColorR, Config.AccentColorG, Config.AccentColorB = 50, 205, 90
         UpdateThemeColors(Color3.fromRGB(50, 205, 90))
     end)
     SettingsTab:AddButton({EN = "Red Theme", RU = "Красная тема"}, function()
+        Config.AccentColorR, Config.AccentColorG, Config.AccentColorB = 255, 60, 60
         UpdateThemeColors(Color3.fromRGB(255, 60, 60))
     end)
 
-    -- Добавленный раздел с вашим Telegram-каналом
     SettingsTab:AddSection({EN = "Community & Support", RU = "Сообщество и поддержка"})
     SettingsTab:AddButton({EN = "Copy Telegram Link", RU = "Скопировать ссылку на Telegram"}, function()
         if setclipboard then
