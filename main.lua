@@ -53,7 +53,7 @@ function Library:CreateWindow(settings)
     local loadingSubtitle = settings.LoadingSubtitle or "by Developer"
 
     ---------------------------------------------------------
-    -- КОНФИГУРАЦИЯ (Язык по умолчанию: RU/EN)
+    -- КОНФИГУРАЦИЯ
     ---------------------------------------------------------
     local Config = {
         AccentColorR = 115,
@@ -61,10 +61,13 @@ function Library:CreateWindow(settings)
         AccentColorB = 255,
         Transparency = 0,
         CornerRadius = 12,
-        Language = "RU" -- По умолчанию русский, судя по скриншоту
+        Language = "RU" -- По умолчанию русский
     }
 
     local LocalizedElements = {}
+    local AccentElements = {}
+    local AllCorners = {}
+    local AllFrames = {}
 
     local Theme = {
         Background = Color3.fromRGB(20, 20, 26),
@@ -104,6 +107,7 @@ function Library:CreateWindow(settings)
     SplashStroke.Thickness = 1.5
     SplashStroke.Color = Theme.Accent
     SplashStroke.Parent = SplashFrame
+    table.insert(AccentElements, SplashStroke)
 
     local SplashLogo = Instance.new("TextLabel")
     SplashLogo.Text = "⚡"
@@ -149,6 +153,7 @@ function Library:CreateWindow(settings)
     LoadingBarFill.BackgroundColor3 = Theme.Accent
     LoadingBarFill.BorderSizePixel = 0
     LoadingBarFill.Parent = LoadingBarBg
+    table.insert(AccentElements, LoadingBarFill)
 
     local LoadingBarFillCorner = Instance.new("UICorner")
     LoadingBarFillCorner.CornerRadius = UDim.new(1, 0)
@@ -166,10 +171,7 @@ function Library:CreateWindow(settings)
     Main.ClipsDescendants = true
     Main.Visible = false
     Main.Parent = ScreenGui
-
-    local AllCorners = {}
-    local AllFrames = {Main}
-    local AccentElements = {SplashStroke, LoadingBarFill}
+    table.insert(AllFrames, Main)
 
     local MainCorner = Instance.new("UICorner")
     MainCorner.CornerRadius = UDim.new(0, Config.CornerRadius)
@@ -336,6 +338,19 @@ function Library:CreateWindow(settings)
         end
     end
 
+    local function UpdateThemeColors(newColor)
+        Theme.Accent = newColor
+        for _, elem in ipairs(AccentElements) do
+            if elem then
+                if elem:IsA("TextButton") or elem:IsA("Frame") then
+                    TweenService:Create(elem, TweenInfo.new(0.2), {BackgroundColor3 = newColor}):Play()
+                elseif elem:IsA("UIStroke") then
+                    elem.Color = newColor
+                end
+            end
+        end
+    end
+
     ---------------------------------------------------------
     -- API ОКОН И ВКЛАДОК
     ---------------------------------------------------------
@@ -455,7 +470,6 @@ function Library:CreateWindow(settings)
             return Label
         end
 
-        -- Метод для динамических лейблов (инфо-вкладка)
         function Elements:AddDynamicLabel(labelText, valueGetter)
             local initText = type(labelText) == "table" and (labelText[Config.Language] or labelText["EN"]) or labelText
             local val = valueGetter() or "N/A"
@@ -572,7 +586,8 @@ function Library:CreateWindow(settings)
                     if idx then table.remove(AccentElements, idx) end
                 end
 
-                TweenService:Create(Circle, TweenInfo.new(0.15), {Position = targetPos}):Play()
+                Circle:TweenPosition(targetPos, Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
+                Switch:TweenSizeAndPosition(Switch.Size, Switch.Position, Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
                 TweenService:Create(Switch, TweenInfo.new(0.15), {BackgroundColor3 = targetColor}):Play()
 
                 if callback then callback(state) end
@@ -683,7 +698,7 @@ function Library:CreateWindow(settings)
     end
 
     ---------------------------------------------------------
-    -- ВКЛАДКА "ИНФО" (Порядок 1)
+    -- 1. ВКЛАДКА "ИНФО" (Порядок 1)
     ---------------------------------------------------------
     local InfoTab = WindowAPI:CreateTab({EN = "Info", RU = "Инфо"}, 1)
     InfoTab:AddSection({EN = "Player Information", RU = "Информация об игроке"})
@@ -693,7 +708,44 @@ function Library:CreateWindow(settings)
     InfoTab:AddDynamicLabel({EN = "Game: ", RU = "Игра: "}, function() return GetGameName() end)
     InfoTab:AddDynamicLabel({EN = "Place ID: ", RU = "Place ID: "}, function() return tostring(game.PlaceId) end)
 
-    -- Анимация появления
+    ---------------------------------------------------------
+    -- 2. ВКЛАДКА "НАСТРОЙКИ" (Порядок 99 - в самый низ)
+    ---------------------------------------------------------
+    local SettingsTab = WindowAPI:CreateTab({EN = "Settings", RU = "Настройки"}, 99)
+
+    SettingsTab:AddSection({EN = "Language", RU = "Язык интерфейса"})
+    SettingsTab:AddButton({EN = "Switch to Russian (RU)", RU = "Включить русский (RU)"}, function()
+        WindowAPI:SetLanguage("RU")
+    end)
+    SettingsTab:AddButton({EN = "Switch to English (EN)", RU = "Switch to English (EN)"}, function()
+        WindowAPI:SetLanguage("EN")
+    end)
+
+    SettingsTab:AddSection({EN = "Appearance", RU = "Внешний вид"})
+    SettingsTab:AddSlider({EN = "UI Transparency", RU = "Прозрачность UI"}, "Transparency", 0, 80, 0, function(v)
+        Config.Transparency = v
+        for _, frame in ipairs(AllFrames) do
+            if frame and frame.Parent then
+                frame.BackgroundTransparency = v / 100
+            end
+        end
+    end)
+
+    SettingsTab:AddSection({EN = "Theme Accent", RU = "Акцентный цвет"})
+    SettingsTab:AddButton({EN = "Purple Theme", RU = "Фиолетовая тема"}, function()
+        UpdateThemeColors(Color3.fromRGB(115, 80, 255))
+    end)
+    SettingsTab:AddButton({EN = "Blue Theme", RU = "Синяя тема"}, function()
+        UpdateThemeColors(Color3.fromRGB(50, 130, 255))
+    end)
+    SettingsTab:AddButton({EN = "Green Theme", RU = "Зеленая тема"}, function()
+        UpdateThemeColors(Color3.fromRGB(50, 205, 90))
+    end)
+    SettingsTab:AddButton({EN = "Red Theme", RU = "Красная тема"}, function()
+        UpdateThemeColors(Color3.fromRGB(255, 60, 60))
+    end)
+
+    -- Анимация появления главного окна
     task.spawn(function()
         TweenService:Create(LoadingBarFill, TweenInfo.new(1.0, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 1, 0)}):Play()
         task.wait(1.1)
