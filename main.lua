@@ -51,10 +51,9 @@ function Library:CreateWindow(settings)
     local windowName = settings.Name or "Universal Hub"
     local loadingTitle = settings.LoadingTitle or windowName
     local loadingSubtitle = settings.LoadingSubtitle or "by Developer"
-    local configFolderName = settings.FolderName or "UniversalHubConfigs"
 
     ---------------------------------------------------------
-    -- КОНФИГУРАЦИЯ (Язык по умолчанию: EN)
+    -- КОНФИГУРАЦИЯ (Язык по умолчанию: RU/EN)
     ---------------------------------------------------------
     local Config = {
         AccentColorR = 115,
@@ -62,7 +61,7 @@ function Library:CreateWindow(settings)
         AccentColorB = 255,
         Transparency = 0,
         CornerRadius = 12,
-        Language = "EN"
+        Language = "RU" -- По умолчанию русский, судя по скриншоту
     }
 
     local LocalizedElements = {}
@@ -328,6 +327,8 @@ function Library:CreateWindow(settings)
                     item.Label.Text = string.upper(currentText)
                 elseif item.Type == "Slider" then
                     item.Label.Text = currentText .. ": " .. tostring(item.GetValue())
+                elseif item.Type == "Dynamic" and item.GetValue then
+                    item.Label.Text = currentText .. item.GetValue()
                 else
                     item.Label.Text = currentText
                 end
@@ -451,6 +452,30 @@ function Library:CreateWindow(settings)
             if type(labelText) == "table" then
                 table.insert(LocalizedElements, {Type = "Static", Label = Label, TextData = labelText})
             end
+            return Label
+        end
+
+        -- Метод для динамических лейблов (инфо-вкладка)
+        function Elements:AddDynamicLabel(labelText, valueGetter)
+            local initText = type(labelText) == "table" and (labelText[Config.Language] or labelText["EN"]) or labelText
+            local val = valueGetter() or "N/A"
+            
+            local Label = Instance.new("TextLabel")
+            Label.Text = initText .. tostring(val)
+            Label.Size = UDim2.new(1, -5, 0, 25)
+            Label.TextColor3 = Theme.Text
+            Label.TextSize = 11
+            Label.Font = Enum.Font.Gotham
+            Label.TextXAlignment = Enum.TextXAlignment.Left
+            Label.BackgroundTransparency = 1
+            Label.Parent = Page
+
+            table.insert(LocalizedElements, {
+                Type = "Dynamic",
+                Label = Label,
+                TextData = labelText,
+                GetValue = function() return tostring(valueGetter() or "N/A") end
+            })
             return Label
         end
 
@@ -658,15 +683,15 @@ function Library:CreateWindow(settings)
     end
 
     ---------------------------------------------------------
-    -- 1. ВКЛАДКА "INFO" (Строго сверху — порядок 1)
+    -- ВКЛАДКА "ИНФО" (Порядок 1)
     ---------------------------------------------------------
     local InfoTab = WindowAPI:CreateTab({EN = "Info", RU = "Инфо"}, 1)
     InfoTab:AddSection({EN = "Player Information", RU = "Информация об игроке"})
     
-    InfoTab:AddLabel("Username: " .. LocalPlayer.Name)
-    InfoTab:AddLabel("Executor: " .. GetExecutorName())
-    InfoTab:AddLabel("Game: " .. GetGameName())
-    InfoTab:AddLabel("Place ID: " .. tostring(game.PlaceId))
+    InfoTab:AddDynamicLabel({EN = "Username: ", RU = "Ник: "}, function() return LocalPlayer.Name end)
+    InfoTab:AddDynamicLabel({EN = "Executor: ", RU = "Инжектор: "}, function() return GetExecutorName() end)
+    InfoTab:AddDynamicLabel({EN = "Game: ", RU = "Игра: "}, function() return GetGameName() end)
+    InfoTab:AddDynamicLabel({EN = "Place ID: ", RU = "Place ID: "}, function() return tostring(game.PlaceId) end)
 
     -- Анимация появления
     task.spawn(function()
